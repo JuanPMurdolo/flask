@@ -12,14 +12,14 @@ blp = Blueprint(
     "item", __name__, description="Operations on items"
 )
 
-@blp.route("/item/<string:item_id>")
+@blp.route("/item/<int:item_id>")
 class Item(MethodView):
     @blp.response(200, ItemSchema)
-    def get(self, item_id: str):
+    def get(self, item_id: int):
         item = ItemModel.query.get_or_404(item_id)
         return item
 
-    def delete(self, item_id: str):
+    def delete(self, item_id: int):
         item = ItemModel.query.get_or_404(item_id)
         try:
             db.session.delete(item)
