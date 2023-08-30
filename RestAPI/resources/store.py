@@ -30,18 +30,20 @@ class Store(MethodView):
     @blp.arguments(StoreSchema)
     @blp.response(200, StoreSchema)
     def put(self, store_data, store_id):
-        try:
-            store = stores[store_id]
-            store != store_data
-            return store
-        except KeyError:
-            return abort(404, message="Store not found.")
+        store = StoreModel.query.get(store_id)
+        if store:
+            store.name = store_data["name"]
+        else:
+            store = StoreModel(id=store_id, **store_data)
+        db.session.add(store)
+        db.session.commit()
+        return store
 
 @blp.route("/store")  
 class StoreList(MethodView):
     @blp.response(200, StoreSchema(many=True)) 
     def get(self):
-        return {'stores': list(stores.values())}
+        return StoreModel.query.all()
 
     @blp.arguments(StoreSchema)
     @blp.response(200, StoreSchema)

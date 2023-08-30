@@ -31,23 +31,22 @@ class Item(MethodView):
     @blp.arguments(ItemUpdateSchema)
     @blp.response(200, ItemSchema)
     def put(self, item_data, item_id):
-        if "price" not in item_data or "name" not in item_data:
-            abort(
-                400,
-                message="Bad request. Ensure 'price' is included in the JSON payload.",
-            )
-        try:
-            item = items[item_id]
-            item != item_data
-            return item
-        except KeyError:
-            return abort(404, message="Item not found.")
+        item = ItemModel.query.get(item_id)
+        if item:
+            item.name = item_data["name"]
+            item.price = item_data["price"]
+        else:
+            item = ItemModel(id=item_id, **item_data)
+        db.session.add(item)
+        db.session.commit()
+        return item
+
         
 @blp.route("/item")
 class ItemList(MethodView):  
     @blp.response(200, ItemSchema(many=True))
     def get(self):
-        return {'items': list(items.values())}
+        return ItemModel.query.all()
 
     @blp.arguments(ItemSchema)
     @blp.response(201, ItemSchema)
