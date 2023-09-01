@@ -1,9 +1,13 @@
 import os
 import secrets
+import redis
 
 from flask import Flask,request, jsonify
 from flask_smorest import Api, Blueprint, abort
 from flask_jwt_extended import JWTManager
+from flask_migrate import Migrate
+from dotenv import load_dotenv
+from rq import Queue
 
 from resources.item import blp as ItemBlueprint
 from resources.store import blp as StoreBlueprint
@@ -18,7 +22,12 @@ from blocklist import BLOCKLIST
 def create_app(db_url=None):
 
     app = Flask(__name__)
+    load_dotenv()
 
+    connection = redis.from_url(
+        os.getenv("REDIS_URL", "redis://")
+    )
+    app.queue = Queue("emails", connection=connection)
     app.config["API_TITLE"] = "Stores REST API"
     app.config["API_VERSION"] = "v1"
     app.config["PROPAGATE_EXCEPTIONS"] = True
@@ -29,6 +38,7 @@ def create_app(db_url=None):
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url or os.getenv("DATABASE_URL", "sqlite:///data.db")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.init_app(app)
+    migrate = Migrate(app, db)
 
     api = Api(app)
 
@@ -44,6 +54,13 @@ def create_app(db_url=None):
         return jsonify({
             "description": "The token has been revoked.",
             "error": "token_revoked"
+        }), 401
+    
+    @jwt.needs_fresh_token_loader
+    def token_not_fresh_callback(jwt_header, jwt_payload):
+        return jsonify({
+            "description": "The token is not fresh.",
+            "error": "fresh_token_required"
         }), 401
 
     @jwt.additional_claims_loader
@@ -71,9 +88,6 @@ def create_app(db_url=None):
             "description": "Request does not contain an access token.",
             "error": "authorization_required"
         }), 401
-
-    with app.app_context():
-        db.create_all()
 
     api.register_blueprint(ItemBlueprint)
     api.register_blueprint(StoreBlueprint)
